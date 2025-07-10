@@ -8,42 +8,33 @@ use Inertia\Inertia;
 
 class VillageProfileController extends Controller
 {
-    /**
-     * Menampilkan halaman profil desa untuk publik.
-     */
-    public function show()
-    {
-        $settings = Setting::pluck('value', 'key');
-        return Inertia::render('Public/ProfileShow', ['settings' => $settings]);
-    }
-
-    /**
-     * Menampilkan form edit profil desa untuk admin.
-     */
     public function edit()
     {
-        $settings = Setting::pluck('value', 'key');
-        return Inertia::render('Admin/ProfileEdit', ['settings' => $settings]);
+        $profileContent = Setting::where('key', 'village_profile_content')->first();
+        return Inertia::render('Admin/Profile/Edit', [
+            'profileContent' => $profileContent ? $profileContent->value : ['blocks' => []],
+        ]);
     }
 
-    /**
-     * Menyimpan perubahan dari form edit.
-     */
     public function update(Request $request)
     {
-        $data = $request->validate([
-            'village_history' => 'nullable|string',
-            'village_vision' => 'nullable|string',
-            'village_mission' => 'nullable|string',
+        $request->validate([
+            'profile_content' => 'nullable|json',
         ]);
 
-        foreach ($data as $key => $value) {
-            Setting::updateOrCreate(
-                ['key' => $key],
-                ['value' => $value]
-            );
-        }
+        $setting = Setting::firstOrNew(['key' => 'village_profile_content']);
+        $setting->value = $request->profile_content;
+        $setting->save();
 
-        return redirect()->back()->with('success', 'Profil Desa berhasil diperbarui.');
+        return redirect()->back()->with('success', 'Village Profile updated successfully.');
+    }
+
+    // Public show method
+    public function show()
+    {
+        $profileContent = Setting::where('key', 'village_profile_content')->first();
+        return Inertia::render('Profile/Show', [
+            'profileContent' => $profileContent ? $profileContent->value : ['blocks' => []],
+        ]);
     }
 }

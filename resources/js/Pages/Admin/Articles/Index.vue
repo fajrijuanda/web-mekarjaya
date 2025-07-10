@@ -20,7 +20,7 @@ const deleteArticle = (id) => {
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                     Manajemen Artikel
                 </h2>
-                <Link :href="route('articles.create')" class="px-4 py-2 bg-blue-600 text-white rounded-md">
+                <Link :href="route('admin.articles.create')" class="px-4 py-2 bg-blue-600 text-white rounded-md">
                     Buat Artikel Baru
                 </Link>
             </div>
@@ -48,7 +48,7 @@ const deleteArticle = (id) => {
                                     </span>
                                 </td>
                                 <td class="p-4 space-x-2">
-                                    <Link :href="route('articles.edit', article.id)" class="text-blue-600 hover:underline">Edit</Link>
+                                    <Link :href="route('admin.articles.edit', article.id)" class="text-blue-600 hover:underline">Edit</Link>
                                     <button @click="deleteArticle(article.id)" class="text-red-600 hover:underline">Hapus</button>
                                 </td>
                             </tr>

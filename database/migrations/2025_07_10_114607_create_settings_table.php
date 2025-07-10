@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::create('settings', function (Blueprint $table) {
             $table->id();
             $table->string('key')->unique(); // Kunci unik, misal: 'village_history'
-            $table->text('value')->nullable(); // Nilai dari setting tersebut
+            $table->longText('value')->nullable();
             $table->timestamps();
         });
     }

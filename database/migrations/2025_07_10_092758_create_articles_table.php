@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('title');
             $table->string('slug')->unique();
-            $table->json('content');
+            $table->longText('content')->nullable();
             $table->string('template')->default('default');
             $table->enum('status', ['draft', 'published'])->default('draft');
             $table->timestamps();

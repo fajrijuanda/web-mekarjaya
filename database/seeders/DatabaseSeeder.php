@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             ResidentSeeder::class,
             LetterSeeder::class,
+            ArticleSeeder::class,
         ]);
     }
 }

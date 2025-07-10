@@ -13,27 +13,34 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        // --- Fungsi Helper yang lebih canggih ---
         $get_stats_data = function ($model, $dateColumn = 'created_at', $typeFilter = null) {
-            // Data 7 hari terakhir (minggu ini)
             $thisWeekCount = $model::whereBetween($dateColumn, [Carbon::today()->subDays(6), Carbon::now()])
                 ->when($typeFilter, fn($query) => $query->where('type', $typeFilter))
                 ->count();
 
-            // Data 7 hari sebelumnya (minggu lalu)
             $lastWeekCount = $model::whereBetween($dateColumn, [Carbon::today()->subDays(13), Carbon::today()->subDays(7)])
-                ->when($typeFilter, fn($query) => $query->where('type', 'masuk'))
+                ->when($typeFilter, fn($query) => $query->where('type', $typeFilter))
                 ->count();
 
-            // Hitung persentase fluktuasi
+            // --- LOGIKA FLUKTUASI YANG SEPENUHNYA DIPERBAIKI ---
+            $fluctuation = 0;
             if ($lastWeekCount > 0) {
+                // Kasus 1: Ada data minggu lalu, kita bisa bandingkan.
                 $fluctuation = (($thisWeekCount - $lastWeekCount) / $lastWeekCount) * 100;
-            } else {
-                // Jika minggu lalu 0, anggap pertumbuhan 100% jika ada data baru
-                $fluctuation = $thisWeekCount > 0 ? 100 : 0;
+            } elseif ($thisWeekCount > 0) {
+                // Kasus 2: Minggu lalu 0, tapi minggu ini ada data -> Pertumbuhan baru.
+                $fluctuation = 100;
+            }
+            // Kasus 3: Jika kedua minggu 0, fluctuation akan tetap 0 (default).
+
+            // --- Aturan Kustom Sesuai Permintaan ---
+            // Jika tidak ada penambahan sama sekali minggu ini (turun menjadi 0),
+            // anggap sebagai 0%, bukan -100%.
+            if ($thisWeekCount === 0 && $lastWeekCount > 0) {
+                $fluctuation = 0;
             }
 
-            // Data series untuk grafik
+
             $series = collect(range(6, 0))->map(function ($day) use ($model, $dateColumn, $typeFilter) {
                 $date = Carbon::today()->subDays($day);
                 return $model::whereDate($dateColumn, $date)
@@ -42,21 +49,22 @@ class DashboardController extends Controller
             });
 
             return [
-                'total' => $model::when($typeFilter, fn($query) => $query->where('type', $typeFilter))->count(),
+                'total' => $model::when($typeFilter, fn($query) => $query->where('type', 'masuk') && $model->getTable() === 'letters' ? $query->where('type', 'masuk') : $query)->count(),
                 'series' => $series,
                 'fluctuation' => round($fluctuation, 1)
             ];
         };
 
+        // ... (sisa kode tetap sama)
         $stats = [
             'articles' => $get_stats_data(new Article),
             'residents' => $get_stats_data(new Resident),
             'users' => $get_stats_data(new User),
             'letters' => $get_stats_data(new Letter, 'letter_date', 'masuk'),
         ];
-        $recentArticles = Article::with('user:id,name')->latest()->take(3)->get();
 
-        $recentLetters = Letter::latest('letter_date')->take(3)->get();
+        $recentArticles = Article::with('user:id,name')->latest()->take(4)->get();
+        $recentLetters = Letter::latest('letter_date')->take(4)->get();
 
         return Inertia::render('Dashboard', [
             'stats' => $stats,

@@ -28,7 +28,7 @@ class ArticleController extends Controller
      */
     public function create()
     {
-        return Inertia::render('Admin/Articles/ArticleForm', [
+        return Inertia::render('Admin/Articles/Form', [
             'article' => null // Tidak ada artikel saat membuat baru
         ]);
     }
