@@ -7,54 +7,61 @@ use App\Models\Letter;
 use App\Models\Resident;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    /**
-     * Menampilkan halaman dashboard admin.
-     */
     public function index()
     {
-        // --- Fungsi Helper untuk mengambil data 7 hari terakhir ---
-        $get_daily_data = function ($model) {
-            return collect(range(6, 0))->map(function ($day) use ($model) {
-                return $model::whereDate('created_at', Carbon::today()->subDays($day))->count();
+        // --- Fungsi Helper yang lebih canggih ---
+        $get_stats_data = function ($model, $dateColumn = 'created_at', $typeFilter = null) {
+            // Data 7 hari terakhir (minggu ini)
+            $thisWeekCount = $model::whereBetween($dateColumn, [Carbon::today()->subDays(6), Carbon::now()])
+                ->when($typeFilter, fn($query) => $query->where('type', $typeFilter))
+                ->count();
+
+            // Data 7 hari sebelumnya (minggu lalu)
+            $lastWeekCount = $model::whereBetween($dateColumn, [Carbon::today()->subDays(13), Carbon::today()->subDays(7)])
+                ->when($typeFilter, fn($query) => $query->where('type', 'masuk'))
+                ->count();
+
+            // Hitung persentase fluktuasi
+            if ($lastWeekCount > 0) {
+                $fluctuation = (($thisWeekCount - $lastWeekCount) / $lastWeekCount) * 100;
+            } else {
+                // Jika minggu lalu 0, anggap pertumbuhan 100% jika ada data baru
+                $fluctuation = $thisWeekCount > 0 ? 100 : 0;
+            }
+
+            // Data series untuk grafik
+            $series = collect(range(6, 0))->map(function ($day) use ($model, $dateColumn, $typeFilter) {
+                $date = Carbon::today()->subDays($day);
+                return $model::whereDate($dateColumn, $date)
+                    ->when($typeFilter, fn($query) => $query->where('type', $typeFilter))
+                    ->count();
             });
+
+            return [
+                'total' => $model::when($typeFilter, fn($query) => $query->where('type', $typeFilter))->count(),
+                'series' => $series,
+                'fluctuation' => round($fluctuation, 1)
+            ];
         };
 
-        // --- Siapkan data untuk setiap kartu ---
         $stats = [
-            'articles' => [
-                'total' => Article::count(),
-                'series' => $get_daily_data(new Article),
-            ],
-            'residents' => [
-                'total' => Resident::count(),
-                'series' => $get_daily_data(new Resident),
-            ],
-            'users' => [
-                'total' => User::count(),
-                'series' => $get_daily_data(new User),
-            ],
-            'letters' => [
-                'total' => Letter::where('type', 'masuk')->count(),
-                'series' => Letter::where('type', 'masuk')
-                    ->select(DB::raw('count(*) as count, date(letter_date) as date'))
-                    ->where('letter_date', '>=', Carbon::today()->subDays(6))
-                    ->groupBy('date')
-                    ->get()
-                    ->pluck('count'),
-            ]
+            'articles' => $get_stats_data(new Article),
+            'residents' => $get_stats_data(new Resident),
+            'users' => $get_stats_data(new User),
+            'letters' => $get_stats_data(new Letter, 'letter_date', 'masuk'),
         ];
+        $recentArticles = Article::with('user:id,name')->latest()->take(3)->get();
 
-        $recentArticles = Article::with('user:id,name')->latest()->take(5)->get();
+        $recentLetters = Letter::latest('letter_date')->take(3)->get();
 
         return Inertia::render('Dashboard', [
             'stats' => $stats,
             'recentArticles' => $recentArticles,
+            'recentLetters' => $recentLetters,
         ]);
     }
 }
