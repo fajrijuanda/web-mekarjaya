@@ -5,6 +5,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\VillageProfileController;
+use App\Models\Article;
+use App\Models\User;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -25,7 +27,23 @@ Route::get('/artikel/{article:slug}', [ArticleController::class, 'publicShow'])-
 Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified'])->group(function () {
     // Rute lain untuk dashboard, dll.
     Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
+        // Ambil data statistik
+        $stats = [
+            'total_articles' => Article::count(),
+            'published_articles' => Article::where('status', 'published')->count(),
+            'total_users' => User::count(),
+        ];
+
+        // Ambil artikel terbaru
+        $recentArticles = Article::with('user:id,name')
+            ->latest()
+            ->take(5)
+            ->get();
+
+        return Inertia::render('Dashboard', [
+            'stats' => $stats,
+            'recentArticles' => $recentArticles,
+        ]);
     })->name('dashboard');
 
     // Rute untuk mengedit profil desa
